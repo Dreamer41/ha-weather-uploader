@@ -20,7 +20,6 @@ from ..const import (
     SERVICE_WOW_BE,
     SERVICE_WUNDERGROUND,
 )
-from ..dewpoint import install as install_dewpoint
 from .base import BaseUploader, UploaderError
 from .cwop import CwopUploader, build_packet
 from .openweathermap import OpenWeatherMapUploader
@@ -29,12 +28,6 @@ from .weathercloud import WeathercloudUploader
 from .windy import WindyUploader
 from .wowbe import WowBeUploader
 from .wunderground import WundergroundUploader
-
-# Install the fork's upload-time Dew Point calculation once when the
-# uploader package is loaded. This keeps the calculation at the final
-# payload boundary, after temperature and humidity have been read from
-# the same coordinator snapshot.
-install_dewpoint()
 
 __all__ = [
     "BaseUploader",
