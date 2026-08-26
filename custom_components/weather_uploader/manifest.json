@@ -1,6 +1,6 @@
 {
   "domain": "weather_uploader",
-  "name": "Weather Network Uploader",
+  "name": "Weather Network Uploader (Dew Point)",
   "codeowners": [
     "@lancer73"
   ],
