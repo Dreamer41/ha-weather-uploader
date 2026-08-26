@@ -11,11 +11,17 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import CONF_INTERVAL, CONF_SERVICES, DEFAULT_INTERVAL
 from .coordinator import UploadCoordinator
+from .dewpoint import install as install_dewpoint
 from .uploaders import BaseUploader, build_uploader
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
+
+# Install the fork's upload-time Dew Point calculation after the uploader
+# package and BaseUploader are fully initialized. Doing this here avoids
+# an import cycle while keeping the original uploader classes untouched.
+install_dewpoint()
 
 
 def _build_uploaders(hass: HomeAssistant, entry: ConfigEntry) -> list[BaseUploader]:
