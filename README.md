@@ -1,3 +1,24 @@
+> ## Fork Notice
+>
+> **This repository is a fork of [`lancer73/ha-weather-uploader`](https://github.com/lancer73/ha-weather-uploader) by @lancer73.**
+>
+> **Full credit for the original integration, architecture, supported weather networks, upload functionality, and existing code belongs to the original author.**
+>
+> This fork keeps the original project's functionality and is intended as a place to develop and test an additional feature focused on **automatic Dew Point calculation**.
+>
+> ### What this fork adds
+>
+> - **Automatic Dew Point calculation from Temperature + Humidity**, enabled by default.
+> - Dew Point is calculated during the existing upload data collection cycle, rather than requiring a separate Home Assistant template sensor or polling automation.
+> - An optional **Dew Point debugging / cross-check** feature can compare the calculated Dew Point against a mapped Dew Point sensor.
+> - The calculated value can be used for weather networks that accept Dew Point but do not calculate it automatically.
+> - The original sensor mapping, upload logic, supported networks, and other functionality remain the foundation of this fork.
+>
+> The purpose of this fork is **not to take credit for the original project**. It builds on the work of @lancer73 and provides a separate place to experiment with and test these additional changes.
+>
+> **Original project:** https://github.com/lancer73/ha-weather-uploader  
+> **Original author:** [@lancer73](https://github.com/lancer73)
+>
 [![Release](https://img.shields.io/github/v/release/lancer73/ha-weather-uploader?label=latest-release&color=green&logo=github)](https://github.com/lancer73/ha-weather-uploader/releases/latest)
 ![HACS installs](https://img.shields.io/badge/dynamic/json?url=https://analytics.home-assistant.io/custom_integrations.json&query=$.weather_uploader.total&label=HACS%20installs)
 ![Build Status Hassfest](https://img.shields.io/github/actions/workflow/status/lancer73/ha-weather-uploader/hassfest.yml?label=hassfest)
@@ -40,8 +61,8 @@ purely hobbyist. A rough spectrum:
   only a public map.
 - **Community and regional networks.** **PWSWeather** is primarily an
   enthusiast platform, though even these may be consumed by third
-  parties. **Weathercloud** is a community weather-station network with a
-  public map and its own apps; its higher paid tiers add faster upload
+  parties. **Weathercloud** is a community weather-station network with
+  a public map and its own apps; its higher paid tiers add faster upload
   rates and historical data access.
 
 The practical takeaway: your observations may be used well beyond a
@@ -140,7 +161,7 @@ more than one part of the stored configuration.
 WOW-BE exposes three send endpoints. They are not equivalent:
 
 | Protocol | Auth | Measurement fields | Used? |
-| --- | --- | :-: | :-: |
+| --- | --- | :-: | --- |
 | `/send/weatherunderground` | `ID` + `PASSWORD` | **16** | ✅ |
 | `/send/wow` | `siteid` + `siteAuthenticationKey` | 15 | — |
 | `/send/ecowitt` | **none** (MD5 of MAC) | 15 | ❌ |
@@ -303,8 +324,8 @@ MADIS. If you want your rain data used, map `rain_hourly` and
 
 OpenWeatherMap is the only supported network with no website signup for
 stations. A station is created through its API, and the `station_id`
-used for uploads is an internal identifier that does not exist until the
-station has been created.
+used for uploads is an internal identifier that does not exist until
+the station has been created.
 
 The configuration handles this for you. When you add OpenWeatherMap, the
 setup step asks for your API key and then offers a choice:
@@ -479,7 +500,7 @@ have to catch in the act.
 ### One last-successful-upload sensor per network
 
 `sensor.weather_network_uploader_<network>_last_success`, e.g.
-`..._wow_be_last_success`. A `timestamp` sensor, so Home Assistant shows
+..._wow_be_last_success`. A `timestamp` sensor, so Home Assistant shows
 it as relative time ("3 minutes ago").
 
 Its state is the moment this network last *accepted* an upload — distinct
@@ -493,7 +514,7 @@ reset it to unknown until the next cycle.
 ### One connectivity sensor per network
 
 `binary_sensor.weather_network_uploader_<network>_upload`, e.g.
-`..._wow_be_upload`. Device class `connectivity`.
+..._wow_be_upload. Device class `connectivity`.
 
 - **State:** `on` when the last upload succeeded, `off` when it failed,
   `unknown` before the first attempt.
@@ -686,178 +707,3 @@ automation:
           message: >
             Weather station may be offline. Stale:
             {{ state_attr(trigger.entity_id, 'stale_sensors') | join(', ') }}
-```
-
-## Security considerations
-
-Read this before publishing.
-
-### Your location becomes public
-
-Weather Underground and both WOW instances plot participating stations
-on public maps at the precision you gave during station registration.
-Publishing associates a physical address with an always-on device and a
-posting schedule. If that is not what you want, register the station at
-a deliberately coarse location, or do not publish.
-
-### Credentials in query strings
-
-Weather Underground, WOW-UK, PWSWeather, and OpenWeatherMap all pass the
-credential as a URL query parameter. TLS protects it in transit, but it
-lands in the provider's access logs by design, and in any intercepting
-proxy's logs on your own network. This is inherent to those APIs.
-
-Weathercloud is the same case: it takes the device WID and Key as query
-parameters, so both land in Weathercloud's access logs. TLS protects
-them in transit; this integration keeps them out of its own logs and
-error attributes, but they travel in the request URL as the API
-mandates.
-
-Windy puts the key in the URL path — same exposure.
-
-**WOW-BE is the exception**, and it is a meaningful one: this
-integration sends the credential in a JSON request body, so it stays out
-of URL-based logging on both ends.
-
-(Windy's v2 API is the opposite case: it is Weather Underground
-compatible and requires the station password in the query string. This
-integration keeps it out of its own logs and error attributes, but the
-password does travel in the request URL, as the API mandates. Use
-HTTPS, which this integration always does.)
-
-That is our design choice, not a property of the API. WOW-BE's endpoint
-is Laravel and merges query parameters into request input, so it accepts
-the credential in a GET query string just as readily — other clients do
-exactly that. The endpoint permits the weaker form; we do not use it.
-
-### Credential storage
-
-Config entry data, including every key, is stored in cleartext in
-`config/.storage/core.config_entries`. This is standard Home Assistant
-behaviour and applies to every integration. It matters if that file is
-in an off-box backup, a git repo, or a snapshot you share when asking
-for help.
-
-The options flow deliberately excludes credentials. Home Assistant
-stores options separately from entry data, so a credential editable
-there would be written to `.storage` in two places, doubling the
-cleanup surface on rotation.
-
-### WOW-BE credential strength
-
-WOW-BE accepts arbitrary-length keys and its docs call the field "PIN
-code or Password". Historically the Met Office issued a 6-digit numeric
-PIN — a 10⁶ keyspace against a publicly visible site ID.
-
-Choose a long random password at registration. Nothing in this
-integration can compensate for a 6-digit one, and the site ID is not
-secret.
-
-WOW-BE's rate limit of 20 requests/minute/site bounds online brute
-force, which the legacy protocol did not.
-
-### Why Ecowitt is not offered
-
-WOW-BE's Ecowitt endpoint has no authentication: the station is
-identified by an MD5 of its MAC address, which is a public identifier
-rather than a secret. It is not implemented here. See
-[Protocol choice](#wow-be-protocol-choice).
-
-### Logging
-
-Request parameters are never logged. Response bodies are truncated to
-200 characters before logging. Do not enable aiohttp's own debug logging
-while this integration is running: it logs full request URLs, including
-every credential above.
-
-CWOP is the one uploader that logs its outbound content, since the APRS
-packet is the only way to diagnose a wire-format problem. It carries no
-credential — the passcode is the public constant `-1` and travels on the
-login line, which is never logged — but it does embed your coordinates,
-so the position is masked in the log line. The callsign, timestamp, and
-weather fields are kept. Debug logs are therefore safe to paste into a
-bug report; the packet actually sent to APRS-IS is unaffected.
-
-For reporting a problem, the integration page's **Download diagnostics**
-button is usually easier than logs: it produces a redacted JSON snapshot
-of the configuration, each network's last result and error code with
-timings, and the sensor mapping. Credentials and coordinates are
-redacted, so the file is safe to attach to an issue as-is.
-
-### Data you may not intend to publish
-
-`indoor_temperature`, `indoor_humidity`, and `co2` are occupancy
-signals. A CO₂ trace published every five minutes reveals when your house
-is occupied and roughly by how many people. Weather Underground accepts
-indoor readings and displays them. Map these only if you have thought
-about it.
-
-## Troubleshooting
-
-Enable debug logging:
-
-```yaml
-logger:
-  default: warning
-  logs:
-    custom_components.weather_uploader: debug
-```
-
-| Symptom | Likely cause |
-| --- | --- |
-| All networks `off`, no log entries | No sensors mapped, or all mapped entities unavailable. Uploads are skipped entirely when there is no data. |
-| `source_data_problem` is `on` | Every mapped sensor is stale, missing, or unusable. Check `stale_sensors` and `missing_sensors`; usually the station is offline. |
-| Uploads green but the network shows old data | Values are being dropped as stale before sending. Check `sensors_published` and `stale_sensors`. |
-| Fields vanish from `last_payload` over time | Those entities stopped *reporting* and are now past `max_sensor_age`. A value that merely stops *changing* — rain at 0.0, solar at night — is not affected. |
-| `HTTP 403` from WOW-BE | Invalid site credentials. Check the key and that you used the ID from the WOW-BE registration email, not an old Met Office site ID. |
-| `HTTP 429` from Windy | Sent faster than once per 5 minutes. The per-network throttle prevents this in normal operation, including across restarts; if you still see it, the station is also being fed by another client. The error carries a `retry_after` time. |
-| `HTTP 422` from WOW-BE | Field validation failed. The message names the field; check `last_error`. A bad `siteid` gives "must be a valid site short ID". |
-| `HTTP 429` from WOW-BE | Rate limited: 20/min/site, 600/min/IP. Increase the interval. |
-| `HTTP 401` / `HTTP 403` elsewhere | Wrong key or station ID. |
-| `wc_429` from Weathercloud | Sent faster than the free-tier 10-minute limit. Weathercloud reports the result in the response body, so its error codes are `wc_<n>` (e.g. `wc_429`, `wc_401`) rather than `http_<n>`. |
-| `wc_401` from Weathercloud | Wrong device WID or Key. |
-| Rain rate looks 10x off on WOW-BE | `rain_rate` mapped to an accumulation sensor. It must be a rate. |
-| Values plausible but consistently offset | Absolute/relative pressure mix-up, or an entity with a missing unit attribute. |
-| `Mapped entity ... is not numeric` | The entity's state is a string like `north`. Use a template sensor to convert. |
-
-## Development
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
-ruff check custom_components/
-ruff format --check custom_components/
-pytest
-```
-
-### Brand image
-
-The integration icon ships in `custom_components/weather_uploader/brand/`,
-which Home Assistant serves directly for custom integrations
-[since 2026.3](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api).
-No submission to the `home-assistant/brands` repository is needed.
-
-The PNGs are build artifacts. Edit `brand_src/icon.svg` and re-render:
-
-```bash
-pip install cairosvg pillow
-python tools/render_brand.py
-```
-
-Only `icon.png` (256×256) and `icon@2x.png` (512×512) are shipped. The
-artwork is square, so Home Assistant falls back to the icon where a
-logo would be used, and it is legible on both light and dark themes, so
-no `dark_` variants are needed.
-
-## Contributing
-
-Issues and pull requests welcome. Two things that would genuinely help:
-
-1. Per-network upload intervals. The interval is currently global, which
-   forces a compromise between RMI's recommended 60 s and Windy's ~5 min
-   minimum.
-2. Additional uploaders — the `BaseUploader` interface is one method.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
